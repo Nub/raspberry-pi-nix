@@ -55,8 +55,8 @@
 
       packages.nixosModules.raspberry-pi = import ./rpi {
         inherit pinned;
-        core-overlay = self.overlays.core;
-        libcamera-overlay = self.overlays.libcamera;
+        core-overlay = core;
+        libcamera-overlay = libcamera;
       };
 
       packages.linux = pinned.rpi-kernels.latest.kernel;
