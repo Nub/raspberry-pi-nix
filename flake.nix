@@ -35,27 +35,31 @@
       flake = false;
       url = "github:raspberrypi/libpisp/v1.0.5";
     };
+    utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = srcs@{ self, ... }:
+  outputs = srcs@{ self, utils, nixpkgs, ... }:   
+  utils.lib.eachDefaultSystem (system:
     let
-      pinned = import srcs.nixpkgs {
-        system = "aarch64-linux";
-        overlays = with self.overlays; [ core libcamera ];
-      };
+      core = import ./overlays (builtins.removeAttrs srcs [ "self" ]);
+      libcamera = import ./overlays/libcamera.nix (builtins.removeAttrs srcs [ "self" ]);
+      pinned = (import nixpkgs {
+        inherit system; 
+        overlays = [ core libcamera ];
+      }).pkgsCross.aarch64-multiplatform;
     in
     {
       overlays = {
-        core = import ./overlays (builtins.removeAttrs srcs [ "self" ]);
-        libcamera = import ./overlays/libcamera.nix (builtins.removeAttrs srcs [ "self" ]);
+        inherit core libcamera;
       };
-      nixosModules.raspberry-pi = import ./rpi {
+
+      packages.nixosModules.raspberry-pi = import ./rpi {
         inherit pinned;
         core-overlay = self.overlays.core;
         libcamera-overlay = self.overlays.libcamera;
       };
-      packages.aarch64-linux = {
-        linux = pinned.rpi-kernels.latest.kernel;
-      };
-    };
+
+      packages.linux = pinned.rpi-kernels.latest.kernel;
+    }
+    );
 }
