@@ -1,12 +1,12 @@
-{ pinned, core-overlay, libcamera-overlay }:
+{ pinned, libcamera-overlay, kernel, firmware, uboot}:
 { lib, pkgs, config, ... }:
 
 let
   cfg = config.raspberry-pi-nix;
-  kernel-pkgs = pinned;
+  build-pkgs = pinned;
 in
 {
-  imports = [ ../sd-image ./config.nix ./i2c.nix ];
+  imports = [ (import ../sd-image {inherit config lib kernel firmware uboot; pkgs = build-pkgs;}) ./config.nix ./i2c.nix ];
 
   options = with lib; {
     raspberry-pi-nix = {
@@ -70,7 +70,7 @@ in
           serviceConfig =
             let
               firmware-path = "/boot/firmware";
-              kernel-params = pkgs.writeTextFile {
+              kernel-params = build-pkgs.writeTextFile {
                 name = "cmdline.txt";
                 text = ''
                   ${lib.strings.concatStringsSep " " config.boot.kernelParams}
@@ -82,16 +82,16 @@ in
               MountImages =
                 "/dev/disk/by-label/${config.sdImage.firmwarePartitionName}:${firmware-path}";
               StateDirectory = "raspberrypi-firmware";
-              ExecStart = pkgs.writeShellScript "migrate-rpi-firmware" ''
+              ExecStart = build-pkgs.writeShellScript "migrate-rpi-firmware" ''
                 shopt -s nullglob
 
                 TARGET_FIRMWARE_DIR="${firmware-path}"
                 TARGET_OVERLAYS_DIR="$TARGET_FIRMWARE_DIR/overlays"
                 TMPFILE="$TARGET_FIRMWARE_DIR/tmp"
-                UBOOT="${pkgs.uboot_rpi_arm64}/u-boot.bin"
-                KERNEL="${kernel-pkgs.rpi-kernels.latest.kernel}/Image"
+                UBOOT="${uboot}/u-boot.bin"
+                KERNEL="${kernel}/Image"
                 SHOULD_UBOOT=${if cfg.uboot.enable then "1" else "0"}
-                SRC_FIRMWARE_DIR="${pkgs.raspberrypifw}/share/raspberrypi/boot"
+                SRC_FIRMWARE_DIR="${build-pkgs.raspberrypifw}/share/raspberrypi/boot"
                 STARTFILES=("$SRC_FIRMWARE_DIR"/start*.elf)
                 DTBS=("$SRC_FIRMWARE_DIR"/*.dtb)
                 BOOTCODE="$SRC_FIRMWARE_DIR/bootcode.bin"
@@ -106,7 +106,7 @@ in
                   cp "$UBOOT" "$TMPFILE"
                   mv -T "$TMPFILE" "$TARGET_FIRMWARE_DIR/u-boot-rpi-arm64.bin"
                   echo "${
-                    builtins.toString pkgs.uboot_rpi_arm64
+                    builtins.toString uboot
                   }" > "$STATE_DIRECTORY/uboot-version"
                   rm "$STATE_DIRECTORY/uboot-migration-in-progress"
                 }
@@ -117,7 +117,7 @@ in
                   cp "$KERNEL" "$TMPFILE"
                   mv -T "$TMPFILE" "$TARGET_FIRMWARE_DIR/kernel.img"
                   echo "${
-                    builtins.toString kernel-pkgs.rpi-kernels.latest.kernel
+                    builtins.toString kernel
                   }" > "$STATE_DIRECTORY/kernel-version"
                   rm "$STATE_DIRECTORY/kernel-migration-in-progress"
                 }
@@ -161,19 +161,19 @@ in
                     mv -T "$TMPFILE" "$TARGET_OVERLAYS_DIR/$(basename "$SRC")"
                   done
                   echo "${
-                    builtins.toString pkgs.raspberrypifw
+                    builtins.toString build-pkgs.raspberrypifw
                   }" > "$STATE_DIRECTORY/firmware-version"
                   rm "$STATE_DIRECTORY/firmware-migration-in-progress"
                 }
 
                 if [[ "$SHOULD_UBOOT" -eq 1 ]] && [[ -f "$STATE_DIRECTORY/uboot-migration-in-progress" || ! -f "$STATE_DIRECTORY/uboot-version" || $(< "$STATE_DIRECTORY/uboot-version") != ${
-                  builtins.toString pkgs.uboot_rpi_arm64
+                  builtins.toString uboot
                 } ]]; then
                   migrate_uboot
                 fi
 
                 if [[ "$SHOULD_UBOOT" -ne 1 ]] && [[ ! -f "$STATE_DIRECTORY/kernel-version" || $(< "$STATE_DIRECTORY/kernel-version") != ${
-                  builtins.toString kernel-pkgs.rpi-kernels.latest.kernel
+                  builtins.toString kernel
                 } ]]; then
                   migrate_kernel
                 fi
@@ -191,7 +191,7 @@ in
                 fi
 
                 if [[ -f "$STATE_DIRECTORY/firmware-migration-in-progress" || ! -f "$STATE_DIRECTORY/firmware-version" || $(< "$STATE_DIRECTORY/firmware-version") != ${
-                  builtins.toString pkgs.raspberrypifw
+                  builtins.toString build-pkgs.raspberrypifw
                 } ]]; then
                   migrate_firmware
                 fi
@@ -261,11 +261,7 @@ in
       };
     };
 
-    nixpkgs = {
-      overlays = [ core-overlay ]
-        ++ (if config.raspberry-pi-nix.libcamera-overlay.enable
-      then [ libcamera-overlay ] else [ ]);
-    };
+    nixpkgs = pinned;
     boot = {
       initrd.availableKernelModules = [
         "usbhid"
@@ -274,10 +270,6 @@ in
         "pcie_brcmstb" # required for the pcie bus to work
         "reset-raspberrypi" # required for vl805 firmware to load
       ];
-      # This pin is not necessary, it would be fine to replace it with
-      # `pkgs.rpi-kernels.latest.kernel`. It is helpful to ensure
-      # cache hits for kernel builds though.
-      kernelPackages = kernel-pkgs.linuxPackagesFor kernel-pkgs.rpi-kernels.latest.kernel;
 
       loader = {
         grub.enable = lib.mkDefault false;
@@ -294,7 +286,7 @@ in
 
     services = {
       udev.extraRules =
-        let shell = "${pkgs.bash}/bin/bash";
+        let shell = "${build-pkgs.bash}/bin/bash";
         in ''
           # https://raw.githubusercontent.com/RPi-Distro/raspberrypi-sys-mods/master/etc.armhf/udev/rules.d/99-com.rules
           SUBSYSTEM=="input", GROUP="input", MODE="0660"

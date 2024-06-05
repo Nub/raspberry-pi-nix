@@ -1,4 +1,4 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, kernel, firmware, uboot, ... }:
 
 {
   imports = [ ./sd-image.nix ];
@@ -22,17 +22,17 @@
         populate-kernel =
           if config.raspberry-pi-nix.uboot.enable
           then ''
-            cp ${pkgs.uboot_rpi_arm64}/u-boot.bin firmware/u-boot-rpi-arm64.bin
+            cp ${uboot}/u-boot.bin firmware/u-boot-rpi-arm64.bin
           ''
           else ''
-            cp "${pkgs.rpi-kernels.latest.kernel}/Image" firmware/kernel.img
+            cp "${kernel}/Image" firmware/kernel.img
             cp "${kernel-params}" firmware/cmdline.txt
           '';
       in
       {
         populateFirmwareCommands = ''
           ${populate-kernel}
-          cp -r ${pkgs.raspberrypifw}/share/raspberrypi/boot/{start*.elf,*.dtb,bootcode.bin,fixup*.dat,overlays} firmware
+          cp -r ${firmware}/share/raspberrypi/boot/{start*.elf,*.dtb,bootcode.bin,fixup*.dat,overlays} firmware
           cp ${config.hardware.raspberry-pi.config-output} firmware/config.txt
         '';
         populateRootCommands =

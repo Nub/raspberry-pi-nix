@@ -38,28 +38,36 @@
     utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = srcs@{ self, utils, nixpkgs, ... }:   
+  outputs = srcs@{ self, utils, nixpkgs, u-boot-src, ... }:   
   utils.lib.eachDefaultSystem (system:
     let
-      core = import ./overlays (builtins.removeAttrs srcs [ "self" ]);
       libcamera = import ./overlays/libcamera.nix (builtins.removeAttrs srcs [ "self" ]);
-      pinned = (import nixpkgs {
-        inherit system; 
-        overlays = [ core libcamera ];
-      }).pkgsCross.aarch64-multiplatform;
+      pinned = nixpkgs.legacyPackages.${system}.pkgsCross.aarch64-multiplatform;
+      # kernel_version = "v6_6_28";
+      rpi-kernels = (pinned.callPackage (import ./overlays/kernel.nix) (builtins.removeAttrs srcs [ "self" ]));
+      kernel = rpi-kernels.latest.kernel;
+      firmware = rpi-kernels.latest.firmware;
+      uboot = pinned.ubootRaspberryPi4_64bit;
     in
     {
       overlays = {
-        inherit core libcamera;
+        inherit libcamera;
       };
 
       packages.nixosModules.raspberry-pi = import ./rpi {
-        inherit pinned;
-        core-overlay = core;
+        inherit pinned kernel firmware uboot;
         libcamera-overlay = libcamera;
       };
 
-      packages.linux = pinned.rpi-kernels.latest.kernel;
+      packages.kernel = kernel; 
+      packages.firmware = firmware; 
+      packages.uboot = uboot;
+
+      # packages.nixosConfigurations.test-nixos = pinned.nixos {
+      #   imports = [
+      #     self.packages.${system}.nixosModules.raspberry-pi
+      #   ];
+      # };
     }
     );
 }
