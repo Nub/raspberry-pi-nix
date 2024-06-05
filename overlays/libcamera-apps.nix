@@ -1,8 +1,6 @@
 { libcamera-apps-src
 , lib
 , stdenv
-, fetchFromGitHub
-, fetchpatch
 , meson
 , pkg-config
 , libjpeg
@@ -14,8 +12,7 @@
 , libexif
 , ninja
 }:
-
-stdenv.mkDerivation rec {
+stdenv.mkDerivation {
   pname = "libcamera-apps";
   version = "v1.4.1";
 

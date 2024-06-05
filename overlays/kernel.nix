@@ -23,7 +23,6 @@ let
       };
       new-fw = raspberrypifw.overrideAttrs (oldfw: { src = fw; });
       new-wireless-fw = callPackage wireless-fw { };
-      version-slug = builtins.replaceStrings [ "." ] [ "_" ] version;
     in
     {
       kernel = new-kernel;
@@ -32,6 +31,15 @@ let
     };
 in
 {
+  uboot = buildUBoot {
+    defconfig = "rpi_arm64_defconfig";
+    extraMeta.platforms = [ "aarch64-linux" ];
+    filesToInstall = [ "u-boot.bin" ];
+    version = "2024.04";
+    patches = [ ];
+    makeFlags = [ ];
+    src = u-boot-src;
+  };
   # rpi kernels and firmware are available at
   # `pkgs.rpi-kernels.<VERSION>.{kernel,firmware,wireless-firmware}'. 
   #

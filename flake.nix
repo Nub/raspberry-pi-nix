@@ -43,11 +43,10 @@
     let
       libcamera = import ./overlays/libcamera.nix (builtins.removeAttrs srcs [ "self" ]);
       pinned = nixpkgs.legacyPackages.${system}.pkgsCross.aarch64-multiplatform;
-      # kernel_version = "v6_6_28";
       rpi-kernels = (pinned.callPackage (import ./overlays/kernel.nix) (builtins.removeAttrs srcs [ "self" ]));
       kernel = rpi-kernels.latest.kernel;
       firmware = rpi-kernels.latest.firmware;
-      uboot = pinned.ubootRaspberryPi4_64bit;
+      uboot = rpi-kernels.uboot;
     in
     {
       overlays = {
@@ -65,8 +64,11 @@
 
       packages.test-nixos = (pinned.nixos {
         imports = [
-        # "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
           self.packages.${system}.nixosModules.raspberry-pi
+          ({...}:{
+            imports = [./dev.nix];
+            services.sshd.enable = true;
+          })
         ];
       }).config.system.build.sdImage;
     }

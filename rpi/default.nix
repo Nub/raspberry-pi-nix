@@ -24,7 +24,7 @@ in
           default = true;
           type = types.bool;
           description = ''
-            If enabled then the libcamera overlay is applied which
+            If enabled then the ibcamera overlay is applied which
             overrides libcamera with the rpi fork.
           '';
         };
