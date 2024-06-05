@@ -12,7 +12,7 @@ in
     raspberry-pi-nix = {
       pin-kernel = {
         enable = mkOption {
-          default = true;
+          default = false;
           type = types.bool;
           description = ''
             Whether to pin the kernel to the latest cachix build.
