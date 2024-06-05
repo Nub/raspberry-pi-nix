@@ -63,11 +63,12 @@
       packages.firmware = firmware; 
       packages.uboot = uboot;
 
-      # packages.nixosConfigurations.test-nixos = pinned.nixos {
-      #   imports = [
-      #     self.packages.${system}.nixosModules.raspberry-pi
-      #   ];
-      # };
+      packages.test-nixos = (pinned.nixos {
+        imports = [
+        # "${nixpkgs}/nixos/modules/installer/sd-card/sd-image-aarch64.nix"
+          self.packages.${system}.nixosModules.raspberry-pi
+        ];
+      }).config.system.build.sdImage;
     }
     );
 }

@@ -261,7 +261,6 @@ in
       };
     };
 
-    nixpkgs = pinned;
     boot = {
       initrd.availableKernelModules = [
         "usbhid"
