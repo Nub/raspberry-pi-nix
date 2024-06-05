@@ -3,7 +3,7 @@
 
 let
   cfg = config.raspberry-pi-nix;
-  kernel-pkgs = if cfg.pin-kernel.enable then pinned else pkgs;
+  kernel-pkgs = pinned;
 in
 {
   imports = [ ../sd-image ./config.nix ./i2c.nix ];
